@@ -8,6 +8,7 @@ is safe to run in a read-only sandbox; running it twice produces
 byte-identical output.
 """
 
+import hashlib
 import os
 import shutil
 import sys
@@ -18,6 +19,14 @@ IMAGE_NAME = "entry.png"
 def fail(message):
     print(f"error: {message}", file=sys.stderr)
     return 1
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main():
@@ -38,10 +47,10 @@ def main():
     except OSError as exc:
         return fail(f"cannot write {target!r}: {exc}")
 
-    # Confirm the copy landed whole: same size as the shipped image.
+    # Confirm the copy landed whole: same bytes as the shipped image.
     try:
-        if os.path.getsize(target) != os.path.getsize(source):
-            return fail(f"{target!r} is incomplete after copy")
+        if _sha256(target) != _sha256(source):
+            return fail(f"{target!r} differs from {source!r} after copy")
     except OSError as exc:
         return fail(f"cannot verify {target!r}: {exc}")
 
